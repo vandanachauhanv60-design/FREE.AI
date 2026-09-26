@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FREE_GPT</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Arial,sans-serif; }
+  body { background:#8a8a8a; height:100vh; overflow:hidden; }
+  .app { display:flex; height:100vh; }
+
+  /* Sidebar */
+  .sidebar { width:260px; background:#0d0d0d; color:#fff; display:flex; flex-direction:column; }
+  .sidebar-header { padding:20px; border-bottom:1px solid #2b2b2b; }
+  .logo { font-size:20px; font-weight:800; letter-spacing:2px; }
+  .logo span { color:#9a9a9a; }
+  .new-chat { width:100%; margin-top:14px; padding:11px; background:#fff; color:#000;
+    border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px; }
+  .new-chat:hover { background:#c4c4c4; }
+  .chat-list { flex:1; overflow-y:auto; padding:12px; }
+  .chat-list-title { font-size:11px; color:#7a7a7a; text-transform:uppercase; letter-spacing:1px; padding:8px 10px; }
+  .chat-item { padding:10px 12px; border-radius:8px; cursor:pointer; color:#c4c4c4;
+    font-size:14px; margin-bottom:4px; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; display:flex; justify-content:space-between; align-items:center; }
+  .chat-item:hover { background:#2b2b2b; color:#fff; }
+  .chat-item.active { background:#3d3d3d; color:#fff; }
+  .del { color:#7a7a7a; font-size:14px; padding:0 4px; visibility:hidden; }
+  .chat-item:hover .del { visibility:visible; }
+  .del:hover { color:#fff; }
+
+  /* Main */
+  .main { flex:1; display:flex; flex-direction:column; }
+  .topbar { padding:14px 24px; background:#1a1a1a; color:#fff; font-weight:600; font-size:15px; }
+  .chat-area { flex:1; overflow-y:auto; padding:24px; }
+  .chat-inner { max-width:800px; margin:0 auto; }
+
+  /* Plain welcome — no cards, no tags */
+  .welcome { text-align:center; margin-top:20vh; }
+  .welcome h1 { font-size:28px; color:#0d0d0d; margin-bottom:10px; font-weight:700; }
+  .welcome p { color:#2b2b2b; font-size:14px; }
+
+  /* Messages */
+  .msg { display:flex; margin-bottom:20px; }
+  .msg.user { justify-content:flex-end; }
+  .bubble { max-width:78%; padding:13px 16px; border-radius:12px; font-size:14.5px;
+    line-height:1.65; word-wrap:break-word; }
+  .msg.user .bubble { background:#ffffff; color:#000; border:1px solid #5a5a5a; white-space:pre-wrap; }
+  .msg.ai .bubble { background:#1a1a1a; color:#e0e0e0; }
+  .bubble img { max-width:100%; border-radius:8px; margin-top:10px; display:block; }
+  .bubble pre { background:#0d0d0d; border:1px solid #3d3d3d; color:#e0e0e0; padding:12px;
+    border-radius:8px; overflow-x:auto; font-family:Consolas,monospace; font-size:13px; margin:10px 0; }
+  .bubble code { font-family:Consolas,monospace; background:#3d3d3d; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .bubble pre code { background:none; padding:0; }
+  .code-head { display:flex; justify-content:space-between; background:#2b2b2b; color:#9a9a9a;
+    font-size:11px; padding:6px 12px; border-radius:8px 8px 0 0; margin:10px 0 -10px 0; }
+  .code-head button { background:none; border:none; color:#c4c4c4; cursor:pointer; font-size:11px; }
+  .code-head button:hover { color:#fff; }
+
+  .typing { color:#1a1a1a; font-size:14px; padding:6px 0; }
+
+  /* Input */
+  .input-area { padding:16px 24px 20px; }
+  .input-box { max-width:800px; margin:0 auto; background:#fff; border:1px solid #5a5a5a;
+    border-radius:14px; padding:10px 12px; display:flex; align-items:flex-end; gap:8px; }
+  .input-box:focus-within { border-color:#0d0d0d; }
+  .attach-btn { width:36px; height:36px; border-radius:8px; border:1px solid #9a9a9a;
+    background:#e0e0e0; cursor:pointer; font-size:15px; flex-shrink:0; }
+  .attach-btn:hover { background:#c4c4c4; }
+  #userInput { flex:1; border:none; outline:none; resize:none; font-size:15px;
+    max-height:150px; padding:8px 4px; background:transparent; }
+  .send { width:38px; height:38px; border-radius:8px; border:none; background:#0d0d0d;
+    color:#fff; cursor:pointer; font-size:16px; flex-shrink:0; }
+  .send:hover { background:#3d3d3d; }
+  .hint { text-align:center; font-size:11px; color:#2b2b2b; margin-top:8px; }
+  .file-chip { max-width:800px; margin:0 auto 8px; font-size:12px; color:#0d0d0d;
+    background:#e0e0e0; border:1px solid #5a5a5a; display:inline-block; padding:5px 12px; border-radius:14px; }
+
+  ::-webkit-scrollbar { width:8px; }
+  ::-webkit-scrollbar-thumb { background:#5a5a5a; border-radius:4px; }
+  @media (max-width:768px) { .sidebar { display:none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">FREE<span>_GPT</span></div>
+      <button class="new-chat" onclick="newChat()">+ New Chat</button>
+    </div>
+    <div class="chat-list" id="chatList"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar">New Conversation</div>
+    <div class="chat-area" id="chatArea"><div class="chat-inner" id="chatInner"></div></div>
+    <div class="input-area">
+      <div id="fileChip"></div>
+      <div class="input-box">
+        <button class="attach-btn" title="Attach a text file" onclick="document.getElementById('fileInput').click()">+</button>
+        <textarea id="userInput" rows="1" placeholder="Message FREE_GPT..."
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px'"></textarea>
+        <button class="send" onclick="send()">&#10148;</button>
+      </div>
+      <div class="hint">FREE_GPT — free forever. Type /image + description to generate images.</div>
+    </div>
+  </main>
+</div>
+<input type="file" id="fileInput" hidden accept=".txt,.md,.csv,.json,.js,.py,.html,.css,.java,.c,.cpp" onchange="readFile(this.files[0])">
+
+<script>
+/* ============ FREE AI — no key needed (Pollinations.ai) ============ */
+const TEXT_API = "https://text.pollinations.ai/openai";
+const IMAGE_API = "https://image.pollinations.ai/prompt/";
+
+const welcomes = [
+  "Welcome back. What shall we work on today?",
+  "Hello. Ask me anything.",
+  "Ready to help with code, questions, and ideas.",
+  "What are we building today?",
+  "Your free AI assistant is online.",
+  "Good to see you. How can I help?",
+  "Let's create something today.",
+  "Ask me anything — coding, writing, ideas."
+];
+
+let chats = [];
+let current = null;
+let busy = false;
+let attachedText = "";
+let attachedName = "";
+
+/* ---------- storage ---------- */
+function save() { localStorage.setItem("freegpt_chats", JSON.stringify(chats)); localStorage.setItem("freegpt_current", current ? current.id : ""); }
+function load() {
+  try { chats = JSON.parse(localStorage.getItem("freegpt_chats")) || []; } catch(e) { chats = []; }
+  const cid = localStorage.getItem("freegpt_current");
+  current = chats.find(c => c.id == cid) || chats[0] || null;
+  if (!current) { newChat(false); }
+}
+
+/* ---------- UI ---------- */
+function showWelcome() {
+  document.getElementById('chatInner').innerHTML =
+    '<div class="welcome"><h1>' + welcomes[Math.floor(Math.random()*welcomes.length)] +
+    '</h1><p>FREE_GPT &mdash; answers, code, and images. Free forever.</p></div>';
+}
+
+function renderList() {
+  const el = document.getElementById('chatList');
+  el.innerHTML = '<div class="chat-list-title">Your Chats</div>';
+  chats.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'chat-item' + (current && c.id === current.id ? ' active' : '');
+    d.innerHTML = '<span style="overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(c.title) + '</span>' +
+                  '<span class="del" title="Delete">&times;</span>';
+    d.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteChat(c.id); };
+    d.onclick = () => { current = c; renderAll(); save(); };
+    el.appendChild(d);
+  });
+}
+
+function deleteChat(id) {
+  chats = chats.filter(c => c.id !== id);
+  if (current && current.id === id) current = chats[0] || null;
+  if (!current) newChat(false); else renderAll();
+  save();
+}
+
+function newChat(rerender = true) {
+  current = { id: Date.now(), title: "New Conversation", messages: [] };
+  chats.unshift(current);
+  if (rerender) renderAll();
+  save();
+}
+
+function renderAll() {
+  document.getElementById('topbar').textContent = current.title;
+  const inner = document.getElementById('chatInner');
+  inner.innerHTML = '';
+  if (current.messages.length === 0) showWelcome();
+  else current.messages.forEach(m => addMsg(m.role === 'user' ? 'user' : 'ai', m.content, m.html));
+  renderList();
+}
+
+function escapeHTML(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function format(text) {
+  let t = escapeHTML(text);
+  t = t.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) =>
+    '<div class="code-head"><span>' + (lang || 'code') + '</span><button onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText)">copy</button></div>' +
+    '<pre><code>' + code.trim() + '</code></pre>');
+  t = t.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  t = t.replace(/\n/g, '<br>');
+  return t;
+}
+
+function addMsg(role, content, html) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.innerHTML = '<div class="bubble">' + (html ? content : (role === 'ai' ? format(content) : escapeHTML(content))) + '</div>';
+  document.getElementById('chatInner').appendChild(d);
+  document.getElementById('chatArea').scrollTop = 1e9;
+}
+
+/* ---------- file attach (text files, read in browser) ---------- */
+function readFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    attachedText = String(reader.result).slice(0, 8000);
+    attachedName = file.name;
+    document.getElementById('fileChip').innerHTML =
+      '<span class="file-chip">Attached: ' + escapeHTML(file.name) +
+      ' <a href="#" onclick="clearFile();return false;" style="color:#0d0d0d;">&times;</a></span>';
+  };
+  reader.readAsText(file);
+  document.getElementById('fileInput').value = '';
+}
+function clearFile() { attachedText = ""; attachedName = ""; document.getElementById('fileChip').innerHTML = ''; }
+
+/* ---------- AI calls ---------- */
+async function getReply(messages) {
+  const res = await fetch(TEXT_API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openai",
+      messages: [
+        { role: "system", content: "You are FREE_GPT, a helpful AI assistant like ChatGPT. Answer any question clearly. Write complete working code in markdown code blocks with the language name. Be concise but thorough." },
+        ...messages.map(m => ({ role: m.role, content: m.content }))
+      ]
+    })
+  });
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+function imageURL(prompt) {
+  return IMAGE_API + encodeURIComponent(prompt) +
+    "?width=1024&height=768&nologo=true&seed=" + Math.floor(Math.random() * 99999);
+}
+
+/* ---------- send ---------- */
+async function send() {
+  if (busy) return;
+  const input = document.getElementById('userInput');
+  let text = input.value.trim();
+  if (!text && !attachedText) return;
+  if (attachedText) {
+    text = (text ? text + "\n\n" : "") + "[File: " + attachedName + "]\n```\n" + attachedText + "\n```";
+    clearFile();
+  }
+  input.value = ''; input.style.height = 'auto';
+  busy = true;
+
+  if (current.messages.length === 0) document.getElementById('chatInner').innerHTML = '';
+  addMsg('user', text);
+  current.messages.push({ role: 'user', content: text });
+  if (current.title === "New Conversation") {
+    current.title = text.slice(0, 32);
+    document.getElementById('topbar').textContent = current.title;
+  }
+  save(); renderList();
+
+  const typing = document.createElement('div');
+  typing.className = 'typing';
+  typing.textContent = 'FREE_GPT is thinking...';
+  document.getElementById('chatInner').appendChild(typing);
+  document.getElementById('chatArea').scrollTop = 1e9;
+
+  try {
+    if (text.toLowerCase().startsWith('/image ')) {
+      const prompt = text.slice(7).trim();
+      const url = imageURL(prompt);
+      const html = 'Here is your image for "' + escapeHTML(prompt) + '":<br><img src="' + url + '" alt="generated image">';
+      typing.remove();
+      addMsg('ai', html, true);
+      current.messages.push({ role: 'assistant', content: '[Generated image: ' + prompt + ']', html });
+    } else {
+      const reply = await getReply(current.messages);
+      typing.remove();
+      addMsg('ai', reply);
+      current.messages.push({ role: 'assistant', content: reply });
+    }
+  } catch (e) {
+    typing.remove();
+    addMsg('ai', 'Something went wrong. Please check your internet connection and try again.');
+  }
+  save();
+  busy = false;
+}
+
+/* ---------- init ---------- */
+load();
+renderAll();
+if (current.messages.length === 0) showWelcome();
+</script>
+</body>
+</html>
